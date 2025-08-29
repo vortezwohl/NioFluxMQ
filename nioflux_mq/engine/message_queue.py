@@ -48,17 +48,17 @@ class MessageQueue:
 
     def unregister_topic(self, topic: str) -> list:
         with self.__queue_pool_lock:
-            if topic not in self._queue_pool:
-                return []
-            with self.__topic_pool_lock:
-                self._topic_pool.remove(topic)
             with self.__consumer_topic_offset_lock:
-                for k in self._consumer_topic_offset.keys():
-                    if topic in list(self._consumer_topic_offset[k].keys()):
-                        del self._consumer_topic_offset[k][topic]
-            queue = self._queue_pool[topic]
-            del self._queue_pool[topic]
-            return queue
+                with self.__topic_pool_lock:
+                    if topic not in self._queue_pool:
+                        return []
+                    self._topic_pool.remove(topic)
+                    for k in self._consumer_topic_offset.keys():
+                        if topic in list(self._consumer_topic_offset[k].keys()):
+                            del self._consumer_topic_offset[k][topic]
+                    queue = self._queue_pool[topic]
+                    del self._queue_pool[topic]
+                    return queue
 
     def register_consumer(self, consumer: str):
         with self.__consumer_pool_lock:

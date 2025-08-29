@@ -80,3 +80,12 @@ class MessageQueue:
             if topic not in self._consumer_topic_offset[consumer]:
                 self._consumer_topic_offset[consumer][topic] = 0
             self._consumer_topic_offset[consumer][topic] += 1
+
+    def rewind(self, consumer: str, topic: str):
+        with self.__consumer_topic_offset_lock:
+            if consumer not in self._consumer_topic_offset.keys():
+                self._consumer_topic_offset[consumer] = dict()
+            if topic not in self._consumer_topic_offset[consumer]:
+                self._consumer_topic_offset[consumer][topic] = 0
+            if self._consumer_topic_offset[consumer][topic] > 0:
+                self._consumer_topic_offset[consumer][topic] -= 1

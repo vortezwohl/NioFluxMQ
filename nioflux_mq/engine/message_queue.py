@@ -61,11 +61,11 @@ class MessageQueue:
                     return queue
 
     def register_consumer(self, consumer: str):
-        with self.__consumer_pool_lock:
-            if consumer in self._consumer_pool:
-                return
-            self._consumer_pool.append(consumer)
-            with self.__consumer_topic_offset_lock:
+        with self.__consumer_topic_offset_lock:
+            with self.__consumer_pool_lock:
+                if consumer in self._consumer_pool:
+                    return
+                self._consumer_pool.append(consumer)
                 self._consumer_topic_offset[consumer] = dict()
 
     def unregister_consumer(self, consumer: str):

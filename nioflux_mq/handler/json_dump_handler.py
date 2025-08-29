@@ -16,5 +16,6 @@ class JsonDumpHandler(PipelineStage):
     @override
     async def __call__(self, data: dict, extra: MessageQueue, err: list[Exception], fire: bool,
                        io_ctx: tuple[asyncio.StreamReader, asyncio.StreamWriter] | None) -> tuple[Any, Any, list[Exception], bool]:
+        data['err'] = [str(e) for e in err]
         data = json.dumps(data, ensure_ascii=False)
         return data, extra, err, fire

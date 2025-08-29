@@ -1,3 +1,5 @@
+import os
+import json
 import time
 from threading import RLock
 
@@ -18,6 +20,7 @@ class MessageQueue:
         self.__consumer_topic_offset_lock = RLock()
         self._queue_pool = dict()
         self.__queue_pool_lock = RLock()
+        self.__snapshot_lock = RLock()
 
     @property
     def topics(self):
@@ -38,6 +41,25 @@ class MessageQueue:
     def queues(self):
         with self.__queue_pool_lock:
             return self._queue_pool.copy()
+
+    def save(self, path: str):
+        with self.__snapshot_lock:
+            snapshot = {
+                'topics': self.topics,
+                'consumers': self.consumers,
+                'consumer_topic_offset': self.consumer_topic_offset,
+                'queues': self.queues
+            }
+            _dir = os.path.dirname(path)
+            os.makedirs(_dir, exist_ok=True)
+            with open(path, mode='w', encoding='utf-8') as f:
+                json.dump(snapshot, f, default=Message.serialize, indent=0)
+            return path
+
+    @staticmethod
+    def load(path: str):
+        with open(path, mode='r', encoding='utf-8') as f:
+            return json.load(f, object_hook=Message.deserialize)
 
     @staticmethod
     def is_message_timeout(message: Message) -> bool:

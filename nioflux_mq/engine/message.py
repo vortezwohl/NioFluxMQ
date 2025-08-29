@@ -9,14 +9,13 @@ class Message:
     payload: bytes
     timestamp: float
     ttl: float
-    tags: list[str]
     timeout: bool = False
 
     @staticmethod
-    def build(payload: bytes, tags: list[str], ttl: float):
+    def build(payload: bytes, ttl: float):
         return Message(payload=payload,
                        timestamp=time.perf_counter(),
-                       id=uuid.uuid4().hex, tags=tags, ttl=ttl)
+                       id=uuid.uuid4().hex, ttl=ttl)
 
     @staticmethod
     def serialize(obj):
@@ -30,7 +29,7 @@ class Message:
     @staticmethod
     def deserialize(dct):
         if dct.get('__class__') == 'Message':
-            message = Message.build(b'', [], -1)
+            message = Message.build(b'', -1)
             dct['__dict__']['payload'] = dct['__dict__']['payload'].encode('utf-8')
             message.__dict__.update(dct['__dict__'])
             return message

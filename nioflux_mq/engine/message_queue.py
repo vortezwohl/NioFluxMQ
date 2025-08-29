@@ -128,20 +128,18 @@ class MessageQueue:
                 if consumer in self._consumer_topic_offset.keys():
                     del self._consumer_topic_offset[consumer]
 
-    def produce(self, message: bytes, topic: str | None = None, tags: list[str] | None = None, ttl: float = -1.):
-        tags = tags if tags is not None else []
+    def produce(self, message: bytes, topic: str | None = None, ttl: float = -1.):
         with self.__queue_pool_lock:
             with self.__topic_pool_lock:
                 if topic is not None:
                     if topic not in self._queue_pool.keys():
                         raise ValueError(f'topic "{topic}" does\'t exist.')
-                    self._queue_pool[topic].append(Message.build(payload=message, tags=tags, ttl=ttl))
+                    self._queue_pool[topic].append(Message.build(payload=message, ttl=ttl))
                 else:
                     for t in self._topic_pool:
-                        self._queue_pool[t].append(Message.build(payload=message, tags=tags, ttl=ttl))
+                        self._queue_pool[t].append(Message.build(payload=message, ttl=ttl))
 
-    def peek(self, consumer: str, topic: str, tags: list[str] | None = None) -> Message | None:
-        tags = tags if tags is not None else []
+    def peek(self, consumer: str, topic: str) -> Message | None:
         with self.__queue_pool_lock:
             with self.__consumer_topic_offset_lock:
                 if topic not in self._queue_pool.keys():
@@ -150,12 +148,9 @@ class MessageQueue:
                 message_length = len(self._queue_pool[topic])
                 if offset >= message_length:
                     return None
-                for i in range(offset, message_length):
-                    message = self._queue_pool[topic][i]
-                    if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
-                        message.timeout = self.is_message_timeout(message)
-                        return message
-                return None
+                message = self._queue_pool[topic][offset]
+                message.timeout = self.is_message_timeout(message)
+                return message
 
     def consume(self, consumer: str, topic: str) -> Message | None:
         with self.__queue_pool_lock:

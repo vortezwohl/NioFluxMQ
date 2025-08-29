@@ -35,12 +35,12 @@ class MessageQueue:
             return self._queue_pool
 
     def register_topic(self, topic: str):
-        with self.__topic_pool_lock:
-            if topic in self._topic_pool:
-                return
-            self._topic_pool.append(topic)
         with self.__queue_pool_lock:
-            self._queue_pool[topic] = []
+            with self.__topic_pool_lock:
+                if topic in self._topic_pool:
+                    return
+                self._topic_pool.append(topic)
+                self._queue_pool[topic] = []
 
     def unregister_topic(self, topic: str) -> list:
         with self.__queue_pool_lock:

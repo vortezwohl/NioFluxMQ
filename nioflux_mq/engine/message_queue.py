@@ -32,8 +32,9 @@ class MessageQueue:
         return self._queue_pool
 
     def register_topic(self, topic: str):
-        assert topic not in self._queue_pool, f'topic "{topic}" already registered.'
         with self.__topic_pool_lock:
+            if topic in self._topic_pool:
+                return
             self._topic_pool.append(topic)
         self._queue_pool[topic] = []
 
@@ -51,6 +52,8 @@ class MessageQueue:
 
     def register_consumer(self, consumer: str):
         with self.__consumer_pool_lock:
+            if consumer in self._consumer_pool:
+                return
             self._consumer_pool.append(consumer)
             with self.__consumer_topic_offset_lock:
                 self._consumer_topic_offset[consumer] = dict()

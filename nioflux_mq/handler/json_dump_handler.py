@@ -11,7 +11,7 @@ from nioflux_mq.mq import MessageQueue
 
 class JsonDumpHandler(PipelineStage):
     def __init__(self):
-        super().__init__(label='json_load_handler')
+        super().__init__(label='json_dump_handler')
 
     @override
     async def __call__(self, data: dict, extra: MessageQueue, err: list[Exception], fire: bool,

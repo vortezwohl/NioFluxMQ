@@ -16,19 +16,23 @@ class MessageQueue:
 
     @property
     def topics(self):
-        return self._topic_pool.copy()
+        with self.__topic_pool_lock:
+            return self._topic_pool.copy()
 
     @property
     def consumers(self):
-        return self._consumer_pool.copy()
+        with self.__consumer_pool_lock:
+            return self._consumer_pool.copy()
 
     @property
     def consumer_topic_offset(self):
-        return self._consumer_topic_offset.copy()
+        with self.__consumer_topic_offset_lock:
+            return self._consumer_topic_offset.copy()
 
     @property
     def queues(self):
-        return self._queue_pool.copy()
+        with self.__queue_pool_lock:
+            return self._queue_pool.copy()
 
     def register_topic(self, topic: str):
         with self.__queue_pool_lock:

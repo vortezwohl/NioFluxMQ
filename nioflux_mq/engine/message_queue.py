@@ -84,7 +84,7 @@ class MessageQueue:
                     for k in self._topic_pool:
                         self._queue_pool[k].append(Message.build(payload=message, tags=tags, ttl=ttl))
 
-    def consume(self, consumer: str, topic: str, tags: list[str] | None = None) -> Message | None:
+    def peek(self, consumer: str, topic: str, tags: list[str] | None = None) -> Message | None:
         tags = tags if tags is not None else []
         with self.__queue_pool_lock:
             assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
@@ -95,6 +95,25 @@ class MessageQueue:
                     if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
                         return message
                 return None
+
+    def consume(self, consumer: str, topic: str, tags: list[str] | None = None) -> Message | None:
+        tags = tags if tags is not None else []
+        with self.__queue_pool_lock:
+            with self.__consumer_topic_offset_lock:
+                assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
+                actual_message = None
+                offset = self._consumer_topic_offset[consumer].get(topic, 0)
+                for i in range(offset, len(self._queue_pool[topic])):
+                    message = self._queue_pool[topic][i]
+                    if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
+                        actual_message = message
+                        break
+                if consumer not in self._consumer_topic_offset.keys():
+                    self._consumer_topic_offset[consumer] = dict()
+                if topic not in self._consumer_topic_offset[consumer]:
+                    self._consumer_topic_offset[consumer][topic] = 0
+                self._consumer_topic_offset[consumer][topic] += 1
+                return actual_message
 
     def advance(self, consumer: str, topic: str, n: int = 1):
         with self.__consumer_topic_offset_lock:

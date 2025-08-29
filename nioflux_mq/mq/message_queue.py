@@ -3,7 +3,7 @@ import json
 import time
 from threading import RLock
 
-from nioflux_mq.engine.message import Message
+from nioflux_mq.mq.message import Message
 
 
 class MessageQueue:

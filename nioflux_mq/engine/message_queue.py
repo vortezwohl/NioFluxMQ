@@ -50,7 +50,7 @@ class MessageQueue:
         with self.__queue_pool_lock:
             with self.__consumer_topic_offset_lock:
                 with self.__topic_pool_lock:
-                    if topic not in self._queue_pool:
+                    if topic not in self._topic_pool:
                         return []
                     self._topic_pool.remove(topic)
                     for k in self._consumer_topic_offset.keys():
@@ -81,7 +81,8 @@ class MessageQueue:
         tags = tags if tags is not None else []
         with self.__queue_pool_lock:
             if topic is not None:
-                assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
+                if topic not in self._topic_pool:
+                    raise ValueError(f'topic "{topic}" does\'t exist.')
                 self._queue_pool[topic].append(Message.build(payload=message, tags=tags, ttl=ttl))
             else:
                 with self.__topic_pool_lock:
@@ -91,7 +92,8 @@ class MessageQueue:
     def peek(self, consumer: str, topic: str, tags: list[str] | None = None) -> Message | None:
         tags = tags if tags is not None else []
         with self.__queue_pool_lock:
-            assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
+            if topic not in self._topic_pool:
+                raise ValueError(f'topic "{topic}" does\'t exist.')
             with self.__consumer_topic_offset_lock:
                 offset = self._consumer_topic_offset[consumer].get(topic, 0)
                 message_length = len(self._queue_pool[topic])
@@ -106,7 +108,8 @@ class MessageQueue:
     def consume(self, consumer: str, topic: str) -> Message | None:
         with self.__queue_pool_lock:
             with self.__consumer_topic_offset_lock:
-                assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
+                if topic not in self._topic_pool:
+                    raise ValueError(f'topic "{topic}" does\'t exist.')
                 if consumer not in self._consumer_topic_offset.keys():
                     self._consumer_topic_offset[consumer] = dict()
                 if topic not in self._consumer_topic_offset[consumer]:

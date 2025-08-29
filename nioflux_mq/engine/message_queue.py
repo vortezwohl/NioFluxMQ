@@ -73,7 +73,7 @@ class MessageQueue:
                 return message
         return None
 
-    def ack(self, consumer: str, topic: str, n: int = 1):
+    def advance(self, consumer: str, topic: str, n: int = 1):
         with self.__consumer_topic_offset_lock:
             if consumer not in self._consumer_topic_offset.keys():
                 self._consumer_topic_offset[consumer] = dict()
@@ -81,7 +81,7 @@ class MessageQueue:
                 self._consumer_topic_offset[consumer][topic] = 0
             self._consumer_topic_offset[consumer][topic] += n
 
-    def rewind(self, consumer: str, topic: str, n: int = 1):
+    def retreat(self, consumer: str, topic: str, n: int = 1):
         with self.__consumer_topic_offset_lock:
             if consumer not in self._consumer_topic_offset.keys():
                 self._consumer_topic_offset[consumer] = dict()

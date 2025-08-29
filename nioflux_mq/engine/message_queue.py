@@ -94,7 +94,10 @@ class MessageQueue:
             assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
             with self.__consumer_topic_offset_lock:
                 offset = self._consumer_topic_offset[consumer].get(topic, 0)
-                for i in range(offset, len(self._queue_pool[topic])):
+                message_length = len(self._queue_pool[topic])
+                if offset >= message_length:
+                    return None
+                for i in range(offset, message_length):
                     message = self._queue_pool[topic][i]
                     if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
                         return message
@@ -109,6 +112,9 @@ class MessageQueue:
                 if topic not in self._consumer_topic_offset[consumer]:
                     self._consumer_topic_offset[consumer][topic] = 0
                 offset = self._consumer_topic_offset[consumer][topic]
+                message_length = len(self._queue_pool[topic])
+                if offset >= message_length:
+                    return None
                 message = self._queue_pool[topic][offset]
                 self._consumer_topic_offset[consumer][topic] += 1
                 return message

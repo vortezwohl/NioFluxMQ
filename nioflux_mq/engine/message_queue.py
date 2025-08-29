@@ -86,8 +86,8 @@ class MessageQueue:
                         raise ValueError(f'topic "{topic}" does\'t exist.')
                     self._queue_pool[topic].append(Message.build(payload=message, tags=tags, ttl=ttl))
                 else:
-                    for k in self._topic_pool:
-                        self._queue_pool[k].append(Message.build(payload=message, tags=tags, ttl=ttl))
+                    for t in self._topic_pool:
+                        self._queue_pool[t].append(Message.build(payload=message, tags=tags, ttl=ttl))
 
     def peek(self, consumer: str, topic: str, tags: list[str] | None = None) -> Message | None:
         tags = tags if tags is not None else []
@@ -112,7 +112,7 @@ class MessageQueue:
                     raise ValueError(f'topic "{topic}" does\'t exist.')
                 if consumer not in self._consumer_topic_offset.keys():
                     self._consumer_topic_offset[consumer] = dict()
-                if topic not in self._consumer_topic_offset[consumer]:
+                if topic not in self._consumer_topic_offset[consumer].keys():
                     self._consumer_topic_offset[consumer][topic] = 0
                 offset = self._consumer_topic_offset[consumer][topic]
                 message_length = len(self._queue_pool[topic])
@@ -126,7 +126,7 @@ class MessageQueue:
         with self.__consumer_topic_offset_lock:
             if consumer not in self._consumer_topic_offset.keys():
                 self._consumer_topic_offset[consumer] = dict()
-            if topic not in self._consumer_topic_offset[consumer]:
+            if topic not in self._consumer_topic_offset[consumer].keys():
                 self._consumer_topic_offset[consumer][topic] = 0
             self._consumer_topic_offset[consumer][topic] += n
 
@@ -134,6 +134,6 @@ class MessageQueue:
         with self.__consumer_topic_offset_lock:
             if consumer not in self._consumer_topic_offset.keys():
                 self._consumer_topic_offset[consumer] = dict()
-            if topic not in self._consumer_topic_offset[consumer]:
+            if topic not in self._consumer_topic_offset[consumer].keys():
                 self._consumer_topic_offset[consumer][topic] = 0
             self._consumer_topic_offset[consumer][topic] = max(self._consumer_topic_offset[consumer][topic] - n, 0)

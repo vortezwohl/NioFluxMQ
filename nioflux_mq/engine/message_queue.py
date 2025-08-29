@@ -1,5 +1,4 @@
 from threading import RLock
-from typing_extensions import OrderedDict
 
 from nioflux_mq.engine.message import Message
 
@@ -12,7 +11,7 @@ class MessageQueue:
         self.__consumer_pool_lock = RLock()
         self._consumer_topic_offset = dict()
         self.__consumer_topic_offset_lock = RLock()
-        self._queue_pool = OrderedDict()
+        self._queue_pool = dict()
         self.__queue_pool_lock = RLock()
 
     @property
@@ -80,17 +79,19 @@ class MessageQueue:
             if topic is not None:
                 assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
                 self._queue_pool[topic].append(Message.build(payload=message, tags=tags, ttl=ttl))
-            for k in self._topic_pool:
-                self._queue_pool[k].append(Message.build(payload=message, tags=tags, ttl=ttl))
+            else:
+                for k in self._topic_pool:
+                    self._queue_pool[k].append(Message.build(payload=message, tags=tags, ttl=ttl))
 
     def consume(self, consumer: str, tags: list[str], topic: str) -> Message | None:
         with self.__queue_pool_lock:
             assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
-            offset = self._consumer_topic_offset[consumer].get(topic, 0)
-            for message in self._queue_pool[topic][offset:]:
-                if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
-                    return message
-            return None
+            with self.__consumer_topic_offset_lock:
+                offset = self._consumer_topic_offset[consumer].get(topic, 0)
+                for message in self._queue_pool[topic][offset:]:
+                    if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
+                        return message
+                return None
 
     def advance(self, consumer: str, topic: str, n: int = 1):
         with self.__consumer_topic_offset_lock:

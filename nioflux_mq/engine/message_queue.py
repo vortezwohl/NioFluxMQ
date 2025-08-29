@@ -5,6 +5,10 @@ from nioflux_mq.engine.message import Message
 
 class MessageQueue:
     def __init__(self):
+        """
+        Lock order:
+        queue_pool_lock -> consumer_topic_offset_lock -> consumer_pool_lock -> topic_pool_lock
+        """
         self._topic_pool = []
         self.__topic_pool_lock = RLock()
         self._consumer_pool = []

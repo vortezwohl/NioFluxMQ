@@ -62,7 +62,7 @@ class MessageQueue:
                 if consumer in self._consumer_topic_offset.keys():
                     del self._consumer_topic_offset[consumer]
 
-    def push(self, message: bytes, tags: list[str] = None, ttl: float = -1., topic: str | None = None):
+    def produce(self, message: bytes, tags: list[str] = None, ttl: float = -1., topic: str | None = None):
         tags = tags if tags is not None else []
         if topic is not None:
             assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
@@ -70,7 +70,7 @@ class MessageQueue:
         for k in self._topic_pool:
             self._queue_pool[k].append(Message.build(payload=message, tags=tags, ttl=ttl))
 
-    def pull(self, consumer: str, tags: list[str], topic: str) -> Message | None:
+    def consume(self, consumer: str, tags: list[str], topic: str) -> Message | None:
         assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
         offset = self._consumer_topic_offset[consumer].get(topic, 0)
         for message in self._queue_pool[topic][offset:]:

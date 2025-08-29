@@ -49,5 +49,6 @@ class NioFluxMQProtocolHandler(PipelineStage):
             resp['success'] = False
         finally:
             if snapshot:
-                extra.save(path=os.getenv('MQ_SNAPSHOT_PATH', __PATH__))
+                path = os.path.join(os.getenv('MQ_SNAPSHOT_DIR', __PATH__), 'snapshot')
+                extra.save(path=path)
         return resp, mq, err, fire

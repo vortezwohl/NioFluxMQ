@@ -22,13 +22,13 @@ class Message:
     def serialize(obj):
         if isinstance(obj, Message):
             return {
-                '__class__': Message.__class__.__name__,
+                '__class__': 'Message',
                 '__dict__': obj.__dict__
             }
 
     @staticmethod
     def deserialize(dct):
-        if dct.get('__class__') == Message.__class__.__name__:
+        if dct.get('__class__') == 'Message':
             message = Message.build(b'', [], -1)
             message.__dict__.update(dct['__dict__'])
             return message

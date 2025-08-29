@@ -10,6 +10,7 @@ class Message:
     timestamp: float
     ttl: float
     tags: list[str]
+    timeout: bool = False
 
     @staticmethod
     def build(payload: bytes, tags: list[str], ttl: float):

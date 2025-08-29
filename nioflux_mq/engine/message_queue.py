@@ -1,3 +1,4 @@
+import time
 from threading import RLock
 
 from nioflux_mq.engine.message import Message
@@ -37,6 +38,14 @@ class MessageQueue:
     def queues(self):
         with self.__queue_pool_lock:
             return self._queue_pool.copy()
+
+    @staticmethod
+    def is_message_timeout(message: Message) -> bool:
+        if message.ttl < 0:
+            return False
+        now = time.perf_counter()
+        interval = now - message.timestamp
+        return interval > message.ttl
 
     def register_topic(self, topic: str):
         with self.__queue_pool_lock:
@@ -102,6 +111,7 @@ class MessageQueue:
                 for i in range(offset, message_length):
                     message = self._queue_pool[topic][i]
                     if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
+                        message.timeout = self.is_message_timeout(message)
                         return message
                 return None
 
@@ -120,6 +130,7 @@ class MessageQueue:
                     return None
                 message = self._queue_pool[topic][offset]
                 self._consumer_topic_offset[consumer][topic] += 1
+                message.timeout = self.is_message_timeout(message)
                 return message
 
     def advance(self, consumer: str, topic: str, n: int = 1):

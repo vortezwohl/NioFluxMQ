@@ -73,19 +73,18 @@ class MessageQueue:
                 return message
         return None
 
-    def ack(self, consumer: str, topic: str):
+    def ack(self, consumer: str, topic: str, n: int = 1):
         with self.__consumer_topic_offset_lock:
             if consumer not in self._consumer_topic_offset.keys():
                 self._consumer_topic_offset[consumer] = dict()
             if topic not in self._consumer_topic_offset[consumer]:
                 self._consumer_topic_offset[consumer][topic] = 0
-            self._consumer_topic_offset[consumer][topic] += 1
+            self._consumer_topic_offset[consumer][topic] += n
 
-    def rewind(self, consumer: str, topic: str):
+    def rewind(self, consumer: str, topic: str, n: int = 1):
         with self.__consumer_topic_offset_lock:
             if consumer not in self._consumer_topic_offset.keys():
                 self._consumer_topic_offset[consumer] = dict()
             if topic not in self._consumer_topic_offset[consumer]:
                 self._consumer_topic_offset[consumer][topic] = 0
-            if self._consumer_topic_offset[consumer][topic] > 0:
-                self._consumer_topic_offset[consumer][topic] -= 1
+            self._consumer_topic_offset[consumer][topic] = max(self._consumer_topic_offset[consumer][topic] - n, 0)

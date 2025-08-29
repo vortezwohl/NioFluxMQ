@@ -58,7 +58,8 @@ class MessageQueue:
                 if consumer in self._consumer_topic_offset.keys():
                     del self._consumer_topic_offset[consumer]
 
-    def push(self, message: bytes, tags: list[str], ttl: float = -1., topic: str | None = None):
+    def push(self, message: bytes, tags: list[str] = None, ttl: float = -1., topic: str | None = None):
+        tags = tags if tags is not None else []
         if topic is not None:
             assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
             self._queue_pool[topic].append(Message.build(payload=message, tags=tags, ttl=ttl))

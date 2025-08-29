@@ -41,6 +41,10 @@ class MessageQueue:
         assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
         with self.__topic_pool_lock:
             self._topic_pool.remove(topic)
+        with self.__consumer_topic_offset_lock:
+            for k in self._consumer_topic_offset.keys():
+                if topic in self._consumer_topic_offset[k].keys():
+                    del self._consumer_topic_offset[k][topic]
         queue = self._queue_pool[topic]
         del self._queue_pool[topic]
         return queue

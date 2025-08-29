@@ -69,11 +69,11 @@ class MessageQueue:
                 self._consumer_topic_offset[consumer] = dict()
 
     def unregister_consumer(self, consumer: str):
-        with self.__consumer_pool_lock:
-            if consumer not in self._consumer_pool:
-                return
-            self._consumer_pool.remove(consumer)
-            with self.__consumer_topic_offset_lock:
+        with self.__consumer_topic_offset_lock:
+            with self.__consumer_pool_lock:
+                if consumer not in self._consumer_pool:
+                    return
+                self._consumer_pool.remove(consumer)
                 if consumer in self._consumer_topic_offset.keys():
                     del self._consumer_topic_offset[consumer]
 

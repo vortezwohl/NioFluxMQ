@@ -50,7 +50,7 @@ class MessageQueue:
         with self.__queue_pool_lock:
             with self.__consumer_topic_offset_lock:
                 with self.__topic_pool_lock:
-                    if topic not in self._topic_pool:
+                    if topic not in self._queue_pool.keys():
                         return []
                     self._topic_pool.remove(topic)
                     for k in self._consumer_topic_offset.keys():
@@ -82,7 +82,7 @@ class MessageQueue:
         with self.__queue_pool_lock:
             with self.__topic_pool_lock:
                 if topic is not None:
-                    if topic not in self._topic_pool:
+                    if topic not in self._queue_pool.keys():
                         raise ValueError(f'topic "{topic}" does\'t exist.')
                     self._queue_pool[topic].append(Message.build(payload=message, tags=tags, ttl=ttl))
                 else:
@@ -93,36 +93,34 @@ class MessageQueue:
         tags = tags if tags is not None else []
         with self.__queue_pool_lock:
             with self.__consumer_topic_offset_lock:
-                with self.__topic_pool_lock:
-                    if topic not in self._topic_pool:
-                        raise ValueError(f'topic "{topic}" does\'t exist.')
-                    offset = self._consumer_topic_offset[consumer].get(topic, 0)
-                    message_length = len(self._queue_pool[topic])
-                    if offset >= message_length:
-                        return None
-                    for i in range(offset, message_length):
-                        message = self._queue_pool[topic][i]
-                        if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
-                            return message
+                if topic not in self._queue_pool.keys():
+                    raise ValueError(f'topic "{topic}" does\'t exist.')
+                offset = self._consumer_topic_offset[consumer].get(topic, 0)
+                message_length = len(self._queue_pool[topic])
+                if offset >= message_length:
                     return None
+                for i in range(offset, message_length):
+                    message = self._queue_pool[topic][i]
+                    if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
+                        return message
+                return None
 
     def consume(self, consumer: str, topic: str) -> Message | None:
         with self.__queue_pool_lock:
             with self.__consumer_topic_offset_lock:
-                with self.__topic_pool_lock:
-                    if topic not in self._topic_pool:
-                        raise ValueError(f'topic "{topic}" does\'t exist.')
-                    if consumer not in self._consumer_topic_offset.keys():
-                        self._consumer_topic_offset[consumer] = dict()
-                    if topic not in self._consumer_topic_offset[consumer]:
-                        self._consumer_topic_offset[consumer][topic] = 0
-                    offset = self._consumer_topic_offset[consumer][topic]
-                    message_length = len(self._queue_pool[topic])
-                    if offset >= message_length:
-                        return None
-                    message = self._queue_pool[topic][offset]
-                    self._consumer_topic_offset[consumer][topic] += 1
-                    return message
+                if topic not in self._queue_pool.keys():
+                    raise ValueError(f'topic "{topic}" does\'t exist.')
+                if consumer not in self._consumer_topic_offset.keys():
+                    self._consumer_topic_offset[consumer] = dict()
+                if topic not in self._consumer_topic_offset[consumer]:
+                    self._consumer_topic_offset[consumer][topic] = 0
+                offset = self._consumer_topic_offset[consumer][topic]
+                message_length = len(self._queue_pool[topic])
+                if offset >= message_length:
+                    return None
+                message = self._queue_pool[topic][offset]
+                self._consumer_topic_offset[consumer][topic] += 1
+                return message
 
     def advance(self, consumer: str, topic: str, n: int = 1):
         with self.__consumer_topic_offset_lock:

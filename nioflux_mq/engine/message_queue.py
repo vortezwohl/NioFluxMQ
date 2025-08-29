@@ -20,6 +20,14 @@ class MessageQueue:
         return self._topic_pool
 
     @property
+    def consumers(self):
+        return self._consumer_pool
+
+    @property
+    def consumer_topic_offset(self):
+        return self._consumer_topic_offset
+
+    @property
     def queues(self):
         return self._queue_pool
 

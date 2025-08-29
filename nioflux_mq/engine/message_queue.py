@@ -1,6 +1,5 @@
 from threading import RLock
-
-from vortezwohl.cache import BaseCache
+from typing_extensions import OrderedDict
 
 from nioflux_mq.engine.message import Message
 
@@ -13,42 +12,50 @@ class MessageQueue:
         self.__consumer_pool_lock = RLock()
         self._consumer_topic_offset = dict()
         self.__consumer_topic_offset_lock = RLock()
-        self._queue_pool = BaseCache()
+        self._queue_pool = OrderedDict()
+        self.__queue_pool_lock = RLock()
 
     @property
     def topics(self):
-        return self._topic_pool
+        with self.__topic_pool_lock:
+            return self._topic_pool
 
     @property
     def consumers(self):
-        return self._consumer_pool
+        with self.__consumer_pool_lock:
+            return self._consumer_pool
 
     @property
     def consumer_topic_offset(self):
-        return self._consumer_topic_offset
+        with self.__consumer_topic_offset_lock:
+            return self._consumer_topic_offset
 
     @property
     def queues(self):
-        return self._queue_pool
+        with self.__queue_pool_lock:
+            return self._queue_pool
 
     def register_topic(self, topic: str):
         with self.__topic_pool_lock:
             if topic in self._topic_pool:
                 return
             self._topic_pool.append(topic)
-        self._queue_pool[topic] = []
+        with self.__queue_pool_lock:
+            self._queue_pool[topic] = []
 
     def unregister_topic(self, topic: str) -> list:
-        assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
-        with self.__topic_pool_lock:
-            self._topic_pool.remove(topic)
-        with self.__consumer_topic_offset_lock:
-            for k in self._consumer_topic_offset.keys():
-                if topic in self._consumer_topic_offset[k].keys():
-                    del self._consumer_topic_offset[k][topic]
-        queue = self._queue_pool[topic]
-        del self._queue_pool[topic]
-        return queue
+        with self.__queue_pool_lock:
+            if topic not in self._queue_pool:
+                return []
+            with self.__topic_pool_lock:
+                self._topic_pool.remove(topic)
+            with self.__consumer_topic_offset_lock:
+                for k in self._consumer_topic_offset.keys():
+                    if topic in self._consumer_topic_offset[k].keys():
+                        del self._consumer_topic_offset[k][topic]
+            queue = self._queue_pool[topic]
+            del self._queue_pool[topic]
+            return queue
 
     def register_consumer(self, consumer: str):
         with self.__consumer_pool_lock:
@@ -60,6 +67,8 @@ class MessageQueue:
 
     def unregister_consumer(self, consumer: str):
         with self.__consumer_pool_lock:
+            if consumer not in self._consumer_pool:
+                return
             self._consumer_pool.remove(consumer)
             with self.__consumer_topic_offset_lock:
                 if consumer in self._consumer_topic_offset.keys():
@@ -67,19 +76,21 @@ class MessageQueue:
 
     def produce(self, message: bytes, tags: list[str] = None, ttl: float = -1., topic: str | None = None):
         tags = tags if tags is not None else []
-        if topic is not None:
-            assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
-            self._queue_pool[topic].append(Message.build(payload=message, tags=tags, ttl=ttl))
-        for k in self._topic_pool:
-            self._queue_pool[k].append(Message.build(payload=message, tags=tags, ttl=ttl))
+        with self.__queue_pool_lock:
+            if topic is not None:
+                assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
+                self._queue_pool[topic].append(Message.build(payload=message, tags=tags, ttl=ttl))
+            for k in self._topic_pool:
+                self._queue_pool[k].append(Message.build(payload=message, tags=tags, ttl=ttl))
 
     def consume(self, consumer: str, tags: list[str], topic: str) -> Message | None:
-        assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
-        offset = self._consumer_topic_offset[consumer].get(topic, 0)
-        for message in self._queue_pool[topic][offset:]:
-            if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
-                return message
-        return None
+        with self.__queue_pool_lock:
+            assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
+            offset = self._consumer_topic_offset[consumer].get(topic, 0)
+            for message in self._queue_pool[topic][offset:]:
+                if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
+                    return message
+            return None
 
     def advance(self, consumer: str, topic: str, n: int = 1):
         with self.__consumer_topic_offset_lock:

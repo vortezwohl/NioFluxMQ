@@ -5,7 +5,7 @@ from vortezwohl.cache import BaseCache
 from nioflux_mq.engine.message import Message
 
 
-class MQ:
+class MessageQueue:
     def __init__(self):
         self._topic_pool = []
         self.__topic_pool_lock = RLock()
@@ -50,7 +50,7 @@ class MQ:
                 if consumer in self._consumer_topic_offset.keys():
                     del self._consumer_topic_offset[consumer]
 
-    def push(self, message: str, tags: list[str], ttl: float = -1., topic: str | None = None):
+    def push(self, message: bytes, tags: list[str], ttl: float = -1., topic: str | None = None):
         if topic is not None:
             assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
             self._queue_pool[topic].append(Message.build(payload=message, tags=tags, ttl=ttl))
@@ -61,7 +61,7 @@ class MQ:
         assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
         offset = self._consumer_topic_offset[consumer].get(topic, 0)
         for message in self._queue_pool[topic][offset:]:
-            if len([_ for _ in tags if _ in message.tags]) > 0:
+            if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
                 return message
         return None
 

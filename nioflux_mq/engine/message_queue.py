@@ -50,7 +50,7 @@ class MessageQueue:
                 self._topic_pool.remove(topic)
             with self.__consumer_topic_offset_lock:
                 for k in self._consumer_topic_offset.keys():
-                    if topic in self._consumer_topic_offset[k].keys():
+                    if topic in list(self._consumer_topic_offset[k].keys()):
                         del self._consumer_topic_offset[k][topic]
             queue = self._queue_pool[topic]
             del self._queue_pool[topic]
@@ -80,8 +80,9 @@ class MessageQueue:
                 assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
                 self._queue_pool[topic].append(Message.build(payload=message, tags=tags, ttl=ttl))
             else:
-                for k in self._topic_pool:
-                    self._queue_pool[k].append(Message.build(payload=message, tags=tags, ttl=ttl))
+                with self.__topic_pool_lock:
+                    for k in self._topic_pool:
+                        self._queue_pool[k].append(Message.build(payload=message, tags=tags, ttl=ttl))
 
     def consume(self, consumer: str, topic: str, tags: list[str] | None = None) -> Message | None:
         tags = tags if tags is not None else []
@@ -89,7 +90,8 @@ class MessageQueue:
             assert topic in self._queue_pool, f'topic "{topic}" does\'t exist.'
             with self.__consumer_topic_offset_lock:
                 offset = self._consumer_topic_offset[consumer].get(topic, 0)
-                for message in self._queue_pool[topic][offset:]:
+                for i in range(offset, len(self._queue_pool[topic])):
+                    message = self._queue_pool[topic][i]
                     if len(tags) < 1 or len([_ for _ in tags if _ in message.tags]) > 0:
                         return message
                 return None

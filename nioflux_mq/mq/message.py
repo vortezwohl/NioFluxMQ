@@ -20,7 +20,8 @@ class Message:
     @staticmethod
     def serialize(obj):
         if isinstance(obj, Message):
-            obj.__dict__['payload'] = obj.__dict__['payload'].decode('utf-8')
+            if isinstance(obj.__dict__['payload'], bytes):
+                obj.__dict__['payload'] = obj.__dict__['payload'].decode('utf-8')
             return {
                 '__class__': 'Message',
                 '__dict__': obj.__dict__

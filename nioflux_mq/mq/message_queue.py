@@ -180,26 +180,6 @@ class MessageQueue:
                         logger.debug(f'Message {message_instance.id} broadcast to topic {t}.')
                         self._queue_pool[t].append(message_instance)
 
-    def peek(self, consumer: str, topic: str) -> Message | None:
-        with self.__queue_pool_lock:
-            with self.__consumer_topic_offset_lock:
-                with self.__consumer_pool_lock:
-                    if topic not in self._queue_pool.keys():
-                        raise ValueError(f'topic "{topic}" does\'t exist.')
-                    if consumer not in self._consumer_pool:
-                        raise ValueError(f'consumer "{consumer}" does\'t exist.')
-                    offset = self._consumer_topic_offset[consumer].get(topic, 0)
-                    message_length = len(self._queue_pool[topic])
-                    if offset >= message_length:
-                        return None
-                    message = self._queue_pool[topic][offset]
-                    message.timeout = self.is_message_timeout(message)
-                    if message.timeout:
-                        # delete expired message (release the memory)
-                        logger.debug(f'Message {message.id} expired.')
-                        self._queue_pool[topic][offset] = EXPIRED_MESSAGE
-                    return message
-
     def consume(self, consumer: str, topic: str) -> Message | None:
         with self.__queue_pool_lock:
             with self.__consumer_topic_offset_lock:
@@ -213,7 +193,6 @@ class MessageQueue:
                     if offset >= message_length:
                         return None
                     message = self._queue_pool[topic][offset]
-                    self._consumer_topic_offset[consumer][topic] += 1
                     message.timeout = self.is_message_timeout(message)
                     if message.timeout:
                         # delete expired message (release the memory)

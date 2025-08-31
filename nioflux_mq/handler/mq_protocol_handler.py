@@ -34,8 +34,6 @@ class NioFluxMQProtocolHandler(PipelineStage):
                 case 'produce':
                     payload['message'] = payload['message'].encode('utf-8')
                     mq.produce(**payload)
-                case 'peek':
-                    resp['info'] = mq.peek(**payload)
                 case 'consume':
                     resp['info'] = mq.consume(**payload)
                 case 'advance':

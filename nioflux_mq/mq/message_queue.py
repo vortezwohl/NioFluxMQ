@@ -170,11 +170,7 @@ class MessageQueue:
                         raise ValueError(f'topic "{topic}" does\'t exist.')
                     if consumer not in self._consumer_pool:
                         raise ValueError(f'consumer "{consumer}" does\'t exist.')
-                    if consumer not in self._consumer_topic_offset.keys():
-                        self._consumer_topic_offset[consumer] = dict()
-                    if topic not in self._consumer_topic_offset[consumer].keys():
-                        self._consumer_topic_offset[consumer][topic] = 0
-                    offset = self._consumer_topic_offset[consumer][topic]
+                    offset = self._consumer_topic_offset[consumer].get(topic, 0)
                     message_length = len(self._queue_pool[topic])
                     if offset >= message_length:
                         return None

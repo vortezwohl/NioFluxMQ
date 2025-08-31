@@ -129,22 +129,23 @@ class MessageQueue:
         interval = now - message.timestamp
         return interval > message.ttl
 
-    def register_topic(self, topic: str):
+    def register_topic(self, topic: str) -> bool:
         with self.__queue_pool_lock:
             with self.__topic_pool_lock:
                 if topic in self._topic_pool:
                     logger.warning(f'Topic {topic} already registered.')
-                    return
+                    return False
                 self._topic_pool.add(topic)
                 self._queue_pool[topic] = []
                 logger.debug(f'Topic {topic} registered.')
+                return True
 
-    def unregister_topic(self, topic: str) -> list:
+    def unregister_topic(self, topic: str) -> bool | list:
         with self.__queue_pool_lock:
             with self.__consumer_topic_offset_lock:
                 with self.__topic_pool_lock:
                     if topic not in self._queue_pool.keys():
-                        return []
+                        return False
                     self._topic_pool.remove(topic)
                     for k in self._consumer_topic_offset.keys():
                         if topic in list(self._consumer_topic_offset[k].keys()):
@@ -154,27 +155,29 @@ class MessageQueue:
                     logger.debug(f'Topic {topic} unregistered.')
                     return queue
 
-    def register_consumer(self, consumer: str):
+    def register_consumer(self, consumer: str) -> bool:
         with self.__consumer_topic_offset_lock:
             with self.__consumer_pool_lock:
                 if consumer in self._consumer_pool:
                     logger.warning(f'Consumer {consumer} already registered.')
-                    return
+                    return False
                 self._consumer_pool.add(consumer)
                 self._consumer_topic_offset[consumer] = dict()
                 logger.debug(f'Consumer {consumer} registered.')
+                return True
 
-    def unregister_consumer(self, consumer: str):
+    def unregister_consumer(self, consumer: str) -> bool | str:
         with self.__consumer_topic_offset_lock:
             with self.__consumer_pool_lock:
                 if consumer not in self._consumer_pool:
-                    return
+                    return False
                 self._consumer_pool.remove(consumer)
                 if consumer in self._consumer_topic_offset.keys():
                     del self._consumer_topic_offset[consumer]
                 logger.debug(f'Consumer {consumer} unregistered.')
+                return consumer
 
-    def produce(self, message: bytes, topic: str | None = None, ttl: float = -1.):
+    def produce(self, message: bytes, topic: str | None = None, ttl: float = -1.) -> Message:
         message_instance = Message.build(payload=message, ttl=ttl)
         with self.__queue_pool_lock:
             with self.__topic_pool_lock:
@@ -187,6 +190,7 @@ class MessageQueue:
                     for t in self._topic_pool:
                         logger.debug(f'Message {message_instance.id} broadcast to topic {t}.')
                         self._queue_pool[t].append(message_instance)
+        return message_instance
 
     def consume(self, consumer: str, topic: str) -> Message | None:
         with self.__queue_pool_lock:

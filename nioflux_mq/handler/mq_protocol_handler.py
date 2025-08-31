@@ -19,10 +19,16 @@ class NioFluxMQProtocolHandler(PipelineStage):
         mq = extra
         instruction = data['instruction']
         payload = data['payload']
-        snapshot = data['snapshot']
         resp = {'success': True, 'info': None, 'err': []}
         try:
             match instruction:
+                case 'snapshot':
+                    path = os.path.join(os.getenv('MQ_SNAPSHOT_DIR', __PATH__), 'snapshot')
+                    extra.save(path=path)
+                case 'topics':
+                    resp['info'] = mq.topics
+                case 'consumers':
+                    resp['info'] = mq.consumers
                 case 'register_topic':
                     mq.register_topic(**payload)
                 case 'unregister_topic':
@@ -45,8 +51,4 @@ class NioFluxMQProtocolHandler(PipelineStage):
         except Exception as e:
             err.append(e)
             resp['success'] = False
-        finally:
-            if snapshot:
-                path = os.path.join(os.getenv('MQ_SNAPSHOT_DIR', __PATH__), 'snapshot')
-                extra.save(path=path)
         return resp, mq, err, fire

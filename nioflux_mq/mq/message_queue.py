@@ -3,6 +3,8 @@ import json
 import time
 from threading import RLock
 
+from vortezwohl.concurrent import ThreadPool
+
 from nioflux_mq.mq.message import Message
 
 __EXPIRED = 'EXPIRED'
@@ -12,7 +14,7 @@ EXPIRED_MESSAGE = Message(id=__EXPIRED, payload=__EXPIRED.encode('utf-8'),
 
 
 class MessageQueue:
-    def __init__(self):
+    def __init__(self, gc_interval: int = 15):
         """
         Lock hierarchy:
         queue_pool_lock -> consumer_topic_offset_lock -> consumer_pool_lock -> topic_pool_lock
@@ -26,6 +28,9 @@ class MessageQueue:
         self._queue_pool = dict()
         self.__queue_pool_lock = RLock()
         self.__snapshot_lock = RLock()
+        self._gc_workers = ThreadPool(max_workers=1)
+        self._gc_workers.submit(self.gc, interval=gc_interval)
+
 
     @property
     def topics(self):
@@ -46,6 +51,17 @@ class MessageQueue:
     def queues(self):
         with self.__queue_pool_lock:
             return self._queue_pool.copy()
+
+    def gc(self, interval: int):
+        while True:
+            time.sleep(interval)
+            with self.__queue_pool_lock:
+                with self.__topic_pool_lock:
+                    for topic in self._topic_pool:
+                        for i, message in enumerate(self._queue_pool.get(topic, [])):
+                            if self.is_message_timeout(message):
+                                # delete expired message (release the memory)
+                                self._queue_pool[topic][i] = EXPIRED_MESSAGE
 
     def save(self, path: str):
         try:

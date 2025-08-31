@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import time
@@ -11,6 +12,8 @@ __EXPIRED = 'EXPIRED'
 EXPIRED_MESSAGE = Message(id=__EXPIRED, payload=__EXPIRED.encode('utf-8'),
                           timestamp=time.perf_counter(), ttl=-1.,
                           timeout=False)
+
+logger = logging.getLogger('nioflux.mq')
 
 
 class MessageQueue:
@@ -30,7 +33,6 @@ class MessageQueue:
         self.__snapshot_lock = RLock()
         self._gc_workers = ThreadPool(max_workers=1)
         self._gc_workers.submit(self.gc, interval=gc_interval)
-
 
     @property
     def topics(self):
@@ -61,6 +63,7 @@ class MessageQueue:
                         for i, message in enumerate(self._queue_pool.get(topic, [])):
                             if self.is_message_timeout(message):
                                 # delete expired message (release the memory)
+                                logger.debug(f'Message {message.id} expired.')
                                 self._queue_pool[topic][i] = EXPIRED_MESSAGE
 
     def save(self, path: str):
@@ -122,9 +125,11 @@ class MessageQueue:
         with self.__queue_pool_lock:
             with self.__topic_pool_lock:
                 if topic in self._topic_pool:
+                    logger.warning(f'Topic {topic} already registered.')
                     return
                 self._topic_pool.add(topic)
                 self._queue_pool[topic] = []
+                logger.debug(f'Topic {topic} registered.')
 
     def unregister_topic(self, topic: str) -> list:
         with self.__queue_pool_lock:
@@ -138,15 +143,18 @@ class MessageQueue:
                             del self._consumer_topic_offset[k][topic]
                     queue = self._queue_pool[topic]
                     del self._queue_pool[topic]
+                    logger.debug(f'Topic {topic} unregistered.')
                     return queue
 
     def register_consumer(self, consumer: str):
         with self.__consumer_topic_offset_lock:
             with self.__consumer_pool_lock:
                 if consumer in self._consumer_pool:
+                    logger.warning(f'Consumer {consumer} already registered.')
                     return
                 self._consumer_pool.add(consumer)
                 self._consumer_topic_offset[consumer] = dict()
+                logger.debug(f'Consumer {consumer} registered.')
 
     def unregister_consumer(self, consumer: str):
         with self.__consumer_topic_offset_lock:
@@ -156,17 +164,21 @@ class MessageQueue:
                 self._consumer_pool.remove(consumer)
                 if consumer in self._consumer_topic_offset.keys():
                     del self._consumer_topic_offset[consumer]
+                logger.debug(f'Consumer {consumer} unregistered.')
 
     def produce(self, message: bytes, topic: str | None = None, ttl: float = -1.):
+        message_instance = Message.build(payload=message, ttl=ttl)
         with self.__queue_pool_lock:
             with self.__topic_pool_lock:
                 if topic is not None:
                     if topic not in self._queue_pool.keys():
                         raise ValueError(f'topic "{topic}" does\'t exist.')
-                    self._queue_pool[topic].append(Message.build(payload=message, ttl=ttl))
+                    logger.debug(f'Message {message_instance.id} sent to topic {topic}.')
+                    self._queue_pool[topic].append(message_instance)
                 else:
                     for t in self._topic_pool:
-                        self._queue_pool[t].append(Message.build(payload=message, ttl=ttl))
+                        logger.debug(f'Message {message_instance.id} broadcast to topic {t}.')
+                        self._queue_pool[t].append(message_instance)
 
     def peek(self, consumer: str, topic: str) -> Message | None:
         with self.__queue_pool_lock:
@@ -184,6 +196,7 @@ class MessageQueue:
                     message.timeout = self.is_message_timeout(message)
                     if message.timeout:
                         # delete expired message (release the memory)
+                        logger.debug(f'Message {message.id} expired.')
                         self._queue_pool[topic][offset] = EXPIRED_MESSAGE
                     return message
 
@@ -204,6 +217,7 @@ class MessageQueue:
                     message.timeout = self.is_message_timeout(message)
                     if message.timeout:
                         # delete expired message (release the memory)
+                        logger.debug(f'Message {message.id} expired.')
                         self._queue_pool[topic][offset] = EXPIRED_MESSAGE
                     return message
 

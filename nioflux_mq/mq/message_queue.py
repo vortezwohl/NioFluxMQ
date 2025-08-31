@@ -5,6 +5,11 @@ from threading import RLock
 
 from nioflux_mq.mq.message import Message
 
+__EXPIRED = 'EXPIRED'
+EXPIRED_MESSAGE = Message(id=__EXPIRED, payload=__EXPIRED.encode('utf-8'),
+                          timestamp=time.perf_counter(), ttl=-1.,
+                          timeout=False)
+
 
 class MessageQueue:
     def __init__(self):
@@ -83,7 +88,7 @@ class MessageQueue:
 
     @staticmethod
     def is_message_timeout(message: Message) -> bool:
-        if message.ttl < 0:
+        if message.ttl < .0:
             return False
         now = time.perf_counter()
         interval = now - message.timestamp
@@ -153,6 +158,8 @@ class MessageQueue:
                         return None
                     message = self._queue_pool[topic][offset]
                     message.timeout = self.is_message_timeout(message)
+                    if message.timeout:
+                        self._queue_pool[topic][offset] = EXPIRED_MESSAGE
                     return message
 
     def consume(self, consumer: str, topic: str) -> Message | None:
@@ -174,6 +181,8 @@ class MessageQueue:
                     message = self._queue_pool[topic][offset]
                     self._consumer_topic_offset[consumer][topic] += 1
                     message.timeout = self.is_message_timeout(message)
+                    if message.timeout:
+                        self._queue_pool[topic][offset] = EXPIRED_MESSAGE
                     return message
 
     def advance(self, consumer: str, topic: str, n: int = 1):

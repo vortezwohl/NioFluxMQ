@@ -48,43 +48,51 @@ class MessageQueue:
             return self._queue_pool.copy()
 
     def save(self, path: str):
-        self.__snapshot_lock.acquire(blocking=True, timeout=-1)
-        self.__consumer_topic_offset_lock.acquire(blocking=True, timeout=-1)
-        self.__consumer_pool_lock.acquire(blocking=True, timeout=-1)
-        self.__topic_pool_lock.acquire(blocking=True, timeout=-1)
-        snapshot = {
-            'topics': self._topic_pool,
-            'consumers': self._consumer_pool,
-            'consumer_topic_offset': self._consumer_topic_offset,
-            'queues': self._queue_pool
-        }
-        _dir = os.path.dirname(path)
-        os.makedirs(_dir, exist_ok=True)
-        with open(path, mode='w', encoding='utf-8') as f:
-            json.dump(snapshot, f, default=Message.serialize, indent=0)
-        self.__snapshot_lock.release()
-        self.__consumer_topic_offset_lock.release()
-        self.__consumer_pool_lock.release()
-        self.__topic_pool_lock.release()
-        return path
+        try:
+            self.__snapshot_lock.acquire(blocking=True, timeout=-1)
+            self.__queue_pool_lock.acquire(blocking=True, timeout=-1)
+            self.__consumer_topic_offset_lock.acquire(blocking=True, timeout=-1)
+            self.__consumer_pool_lock.acquire(blocking=True, timeout=-1)
+            self.__topic_pool_lock.acquire(blocking=True, timeout=-1)
+            snapshot = {
+                'topics': self._topic_pool,
+                'consumers': self._consumer_pool,
+                'consumer_topic_offset': self._consumer_topic_offset,
+                'queues': self._queue_pool
+            }
+            _dir = os.path.dirname(path)
+            os.makedirs(_dir, exist_ok=True)
+            with open(path, mode='w', encoding='utf-8') as f:
+                json.dump(snapshot, f, default=Message.serialize, indent=0)
+            return path
+        finally:
+            self.__snapshot_lock.release()
+            self.__queue_pool_lock.release()
+            self.__consumer_topic_offset_lock.release()
+            self.__consumer_pool_lock.release()
+            self.__topic_pool_lock.release()
 
     def load(self, path: str):
-        self.__snapshot_lock.acquire(blocking=True, timeout=-1)
-        self.__consumer_topic_offset_lock.acquire(blocking=True, timeout=-1)
-        self.__consumer_pool_lock.acquire(blocking=True, timeout=-1)
-        self.__topic_pool_lock.acquire(blocking=True, timeout=-1)
-        snapshot = None
-        with open(path, mode='r', encoding='utf-8') as f:
-            snapshot = json.load(f, object_hook=Message.deserialize)
-            self._topic_pool = set(snapshot['topics'])
-            self._consumer_pool = set(snapshot['consumers'])
-            self._consumer_topic_offset = snapshot['consumer_topic_offset']
-            self._queue_pool = snapshot['queues']
-        self.__snapshot_lock.release()
-        self.__consumer_topic_offset_lock.release()
-        self.__consumer_pool_lock.release()
-        self.__topic_pool_lock.release()
-        return self
+        try:
+            self.__snapshot_lock.acquire(blocking=True, timeout=-1)
+            self.__queue_pool_lock.acquire(blocking=True, timeout=-1)
+            self.__consumer_topic_offset_lock.acquire(blocking=True, timeout=-1)
+            self.__consumer_pool_lock.acquire(blocking=True, timeout=-1)
+            self.__topic_pool_lock.acquire(blocking=True, timeout=-1)
+            snapshot = None
+            with open(path, mode='r', encoding='utf-8') as f:
+                snapshot = json.load(f, object_hook=Message.deserialize)
+                self._topic_pool = set(snapshot['topics'])
+                self._consumer_pool = set(snapshot['consumers'])
+                self._consumer_topic_offset = snapshot['consumer_topic_offset']
+                self._queue_pool = snapshot['queues']
+            return self
+        finally:
+            self.__snapshot_lock.release()
+            self.__queue_pool_lock.release()
+            self.__consumer_topic_offset_lock.release()
+            self.__consumer_pool_lock.release()
+            self.__topic_pool_lock.release()
 
     @staticmethod
     def is_message_timeout(message: Message) -> bool:
@@ -159,6 +167,7 @@ class MessageQueue:
                     message = self._queue_pool[topic][offset]
                     message.timeout = self.is_message_timeout(message)
                     if message.timeout:
+                        # delete expired message (release the memory)
                         self._queue_pool[topic][offset] = EXPIRED_MESSAGE
                     return message
 
@@ -178,6 +187,7 @@ class MessageQueue:
                     self._consumer_topic_offset[consumer][topic] += 1
                     message.timeout = self.is_message_timeout(message)
                     if message.timeout:
+                        # delete expired message (release the memory)
                         self._queue_pool[topic][offset] = EXPIRED_MESSAGE
                     return message
 

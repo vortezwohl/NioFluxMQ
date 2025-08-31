@@ -89,6 +89,7 @@ class MessageQueue:
             os.makedirs(_dir, exist_ok=True)
             with open(path, mode='w', encoding='utf-8') as f:
                 json.dump(snapshot, f, default=Message.serialize, indent=0)
+            logger.debug(f'Snapshot saved to {path}.')
             return path
         finally:
             self.__snapshot_lock.release()
@@ -111,6 +112,7 @@ class MessageQueue:
                 self._consumer_pool = set(snapshot['consumers'])
                 self._consumer_topic_offset = snapshot['consumer_topic_offset']
                 self._queue_pool = snapshot['queues']
+            logger.debug(f'Loaded snapshot from {path}.')
             return self
         finally:
             self.__snapshot_lock.release()

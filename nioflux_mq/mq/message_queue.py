@@ -12,9 +12,9 @@ class MessageQueue:
         Lock hierarchy:
         queue_pool_lock -> consumer_topic_offset_lock -> consumer_pool_lock -> topic_pool_lock
         """
-        self._topic_pool = []
+        self._topic_pool = set()
         self.__topic_pool_lock = RLock()
-        self._consumer_pool = []
+        self._consumer_pool = set()
         self.__consumer_pool_lock = RLock()
         self._consumer_topic_offset = dict()
         self.__consumer_topic_offset_lock = RLock()
@@ -71,8 +71,8 @@ class MessageQueue:
         snapshot = None
         with open(path, mode='r', encoding='utf-8') as f:
             snapshot = json.load(f, object_hook=Message.deserialize)
-            self._topic_pool = snapshot['topics']
-            self._consumer_pool = snapshot['consumers']
+            self._topic_pool = set(snapshot['topics'])
+            self._consumer_pool = set(snapshot['consumers'])
             self._consumer_topic_offset = snapshot['consumer_topic_offset']
             self._queue_pool = snapshot['queues']
         self.__snapshot_lock.release()
@@ -94,7 +94,7 @@ class MessageQueue:
             with self.__topic_pool_lock:
                 if topic in self._topic_pool:
                     return
-                self._topic_pool.append(topic)
+                self._topic_pool.add(topic)
                 self._queue_pool[topic] = []
 
     def unregister_topic(self, topic: str) -> list:
@@ -116,7 +116,7 @@ class MessageQueue:
             with self.__consumer_pool_lock:
                 if consumer in self._consumer_pool:
                     return
-                self._consumer_pool.append(consumer)
+                self._consumer_pool.add(consumer)
                 self._consumer_topic_offset[consumer] = dict()
 
     def unregister_consumer(self, consumer: str):
@@ -142,33 +142,39 @@ class MessageQueue:
     def peek(self, consumer: str, topic: str) -> Message | None:
         with self.__queue_pool_lock:
             with self.__consumer_topic_offset_lock:
-                if topic not in self._queue_pool.keys():
-                    raise ValueError(f'topic "{topic}" does\'t exist.')
-                offset = self._consumer_topic_offset[consumer].get(topic, 0)
-                message_length = len(self._queue_pool[topic])
-                if offset >= message_length:
-                    return None
-                message = self._queue_pool[topic][offset]
-                message.timeout = self.is_message_timeout(message)
-                return message
+                with self.__consumer_pool_lock:
+                    if topic not in self._queue_pool.keys():
+                        raise ValueError(f'topic "{topic}" does\'t exist.')
+                    if consumer not in self._consumer_pool:
+                        raise ValueError(f'consumer "{consumer}" does\'t exist.')
+                    offset = self._consumer_topic_offset[consumer].get(topic, 0)
+                    message_length = len(self._queue_pool[topic])
+                    if offset >= message_length:
+                        return None
+                    message = self._queue_pool[topic][offset]
+                    message.timeout = self.is_message_timeout(message)
+                    return message
 
     def consume(self, consumer: str, topic: str) -> Message | None:
         with self.__queue_pool_lock:
             with self.__consumer_topic_offset_lock:
-                if topic not in self._queue_pool.keys():
-                    raise ValueError(f'topic "{topic}" does\'t exist.')
-                if consumer not in self._consumer_topic_offset.keys():
-                    self._consumer_topic_offset[consumer] = dict()
-                if topic not in self._consumer_topic_offset[consumer].keys():
-                    self._consumer_topic_offset[consumer][topic] = 0
-                offset = self._consumer_topic_offset[consumer][topic]
-                message_length = len(self._queue_pool[topic])
-                if offset >= message_length:
-                    return None
-                message = self._queue_pool[topic][offset]
-                self._consumer_topic_offset[consumer][topic] += 1
-                message.timeout = self.is_message_timeout(message)
-                return message
+                with self.__consumer_pool_lock:
+                    if topic not in self._queue_pool.keys():
+                        raise ValueError(f'topic "{topic}" does\'t exist.')
+                    if consumer not in self._consumer_pool:
+                        raise ValueError(f'consumer "{consumer}" does\'t exist.')
+                    if consumer not in self._consumer_topic_offset.keys():
+                        self._consumer_topic_offset[consumer] = dict()
+                    if topic not in self._consumer_topic_offset[consumer].keys():
+                        self._consumer_topic_offset[consumer][topic] = 0
+                    offset = self._consumer_topic_offset[consumer][topic]
+                    message_length = len(self._queue_pool[topic])
+                    if offset >= message_length:
+                        return None
+                    message = self._queue_pool[topic][offset]
+                    self._consumer_topic_offset[consumer][topic] += 1
+                    message.timeout = self.is_message_timeout(message)
+                    return message
 
     def advance(self, consumer: str, topic: str, n: int = 1):
         with self.__consumer_topic_offset_lock:

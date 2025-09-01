@@ -1,9 +1,9 @@
 [project]
 name = "nioflux-mq"
 version = "0.0.1"
-description = "Add your description here"
+description = "A thread-safe message queue implementation."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
     "nioflux>=0.0.2",
 ]

@@ -1,9 +1,9 @@
 [project]
-name = "niofluxmq"
-version = "0.1.0"
+name = "nioflux-mq"
+version = "0.0.1"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "nioflux>=0.0.1a4",
+    "nioflux>=0.0.2",
 ]

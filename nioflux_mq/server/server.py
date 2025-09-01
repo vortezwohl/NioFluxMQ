@@ -14,7 +14,7 @@ logger = logging.getLogger('nioflux.mq')
 
 
 class NioFluxMQServer:
-    def __init__(self, host: str, port: int, timeout: float = DEFAULT_TIMEOUT,
+    def __init__(self, host: str, port: int | None, timeout: float = DEFAULT_TIMEOUT,
                  buffer_size: int = DEFAULT_BUFFER_SIZE, eot: bytes = DEFAULT_EOT):
         self._host = host
         self._port = port

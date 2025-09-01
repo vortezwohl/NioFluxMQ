@@ -3,6 +3,7 @@ import json
 from nioflux.util import tcp_send
 from nioflux.server.server import DEFAULT_EOT
 
+from nioflux_mq.mq.message import Message
 from nioflux_mq.client.response import Response
 
 
@@ -27,6 +28,10 @@ class NioFluxMQClient:
     @staticmethod
     def response_postprocess(response: bytes) -> Response:
         _dict = json.loads(response.decode('utf-8'))
+        if isinstance(_dict['info'], dict):
+            if _dict['info'].get('__class__') == 'Message':
+                _dict['info'] = json.loads(json.dumps(_dict['info'], ensure_ascii=True),
+                                           object_hook=Message.deserialize)
         return Response(
             success=_dict['success'],
             data=_dict['info'],

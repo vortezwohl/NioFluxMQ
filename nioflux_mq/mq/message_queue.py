@@ -58,7 +58,6 @@ class MessageQueue:
     def gc(self, interval: int):
         while True:
             time.sleep(interval)
-            no_messages_are_expired = True
             with self.__queue_pool_lock:
                 with self.__topic_pool_lock:
                     for topic in self._topic_pool:
@@ -66,11 +65,7 @@ class MessageQueue:
                             if self.is_message_timeout(message):
                                 # delete expired message (release the memory)
                                 gc_logger.debug(f'Message {message.id} expired.')
-                                if no_messages_are_expired:
-                                    no_messages_are_expired = False
                                 self._queue_pool[topic][i] = EXPIRED_MESSAGE
-            if no_messages_are_expired:
-                gc_logger.debug(f'No messages were expired during gc.')
 
     def save(self, path: str):
         try:

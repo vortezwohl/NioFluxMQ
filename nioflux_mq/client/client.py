@@ -27,8 +27,6 @@ class NioFluxMQClient:
     @staticmethod
     def response_postprocess(response: bytes) -> Response:
         _dict = json.loads(response.decode('utf-8'))
-        if len(_dict['err']) > 0:
-            raise _dict['err'][0]
         return Response(
             success=_dict['success'],
             data=_dict['info'],

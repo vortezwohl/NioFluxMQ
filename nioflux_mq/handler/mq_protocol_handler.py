@@ -28,9 +28,9 @@ class NioFluxMQProtocolHandler(PipelineStage):
                     extra.save(path=path)
                     resp['info'] = path
                 case 'topics':
-                    resp['info'] = mq.topics
+                    resp['info'] = list(mq.topics)
                 case 'consumers':
-                    resp['info'] = mq.consumers
+                    resp['info'] = list(mq.consumers)
                 case 'register_topic':
                     resp['info'] = mq.register_topic(**payload)
                 case 'unregister_topic':

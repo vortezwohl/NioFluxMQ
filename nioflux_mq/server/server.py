@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from nioflux.server.server import DEFAULT_EOT, DEFAULT_TIMEOUT, DEFAULT_BUFFER_SIZE
 from nioflux import Server, StrDecode, StrEncode, ErrorNotify
@@ -8,6 +9,8 @@ from nioflux_mq.handler.json_load_handler import JsonLoadHandler
 from nioflux_mq.handler.json_dump_handler import JsonDumpHandler
 from nioflux_mq.handler.mq_protocol_handler import NioFluxMQProtocolHandler
 from nioflux_mq.handler.response_handler import ResponseHandler
+
+logger = logging.getLogger('nioflux.mq')
 
 
 class NioFluxMQServer:
@@ -36,4 +39,5 @@ class NioFluxMQServer:
         return self._port
 
     def run(self):
+        logger.info(f'\\\n{str(self._server)}\nNioFluxMQServer started.')
         asyncio.run(self._server.run())

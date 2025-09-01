@@ -1,5 +1,7 @@
 # *NioFluxMQ*
 
+> Built on [`NioFlux`](https://github.com/vortezwohl/NioFlux) networking framework.
+
 *A thread-safe message queue implementation.*
 
 ## Installation
@@ -72,5 +74,3 @@ uv add -U nioflux-mq
         ```python
         client.retreat('consumer_0', 'topic_0')
         ```
-        
-    
